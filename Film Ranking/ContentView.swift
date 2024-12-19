@@ -1,55 +1,76 @@
-//
-//  ContentView.swift
-//  Film Ranking
-//
-//  Created by Manoah Ruiz Rodriguez on 12/19/24.
-//
-
 import SwiftUI
 import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @Query private var mediaItems: [MediaItem]
 
     var body: some View {
         NavigationSplitView {
             List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+                ForEach(groupedMediaItems.keys.sorted(), id: \.self) { type in
+                    Section(header: Text(type.rawValue)) {
+                        ForEach(groupedMediaItems[type] ?? []) { item in
+                            NavigationLink {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text(item.title)
+                                        .font(.headline)
+                                    Text("Genre: \(item.genre)")
+                                        .font(.subheadline)
+                                    Text("Rating: \(item.rating)/5")
+                                        .font(.subheadline)
+                                    if let comment = item.comment {
+                                        Text("Comment: \(comment)")
+                                            .font(.body)
+                                    }
+                                    Text("Added on: \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
+                                        .font(.footnote)
+                                        .foregroundColor(.secondary)
+                                }
+                                .padding()
+                            } label: {
+                                Text(item.title)
+                            }
+                        }
+                        .onDelete { offsets in
+                            deleteMediaItems(ofType: type, at: offsets)
+                        }
                     }
                 }
-                .onDelete(perform: deleteItems)
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     EditButton()
                 }
                 ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: addMediaItem) {
+                        Label("Add Media", systemImage: "plus")
                     }
                 }
             }
         } detail: {
-            Text("Select an item")
+            Text("Select a media item")
         }
     }
 
-    private func addItem() {
+    // Gruppierung nach Typ
+    private var groupedMediaItems: [MediaType: [MediaItem]] {
+        Dictionary(grouping: mediaItems, by: { $0.type })
+    }
+
+    private func addMediaItem() {
         withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
+            let newMedia = MediaItem(title: "New Title", type: .film, rating: 3, genre: "Unknown", comment: "Add a comment")
+            modelContext.insert(newMedia)
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteMediaItems(ofType type: MediaType, at offsets: IndexSet) {
         withAnimation {
             for index in offsets {
-                modelContext.delete(items[index])
+                if let itemToDelete = groupedMediaItems[type]?[index] {
+                    modelContext.delete(itemToDelete)
+                }
             }
         }
     }
@@ -57,5 +78,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+        .modelContainer(for: MediaItem.self, inMemory: true)
 }
